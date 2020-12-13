@@ -11,7 +11,7 @@ struct item
 class Hash
 {
 private:
-	static const int tableSize = 10;
+	static const int tableSize = 11;
 	item* HashTable[tableSize];
 public:
 	Hash();

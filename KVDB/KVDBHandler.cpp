@@ -29,7 +29,7 @@ KVDBHandler::KVDBHandler(const std::string& db_file)
 	std::cout << "正在打开数据库..." << std::endl;
 
 	Log_Data data;
-	std::string text =filename;
+	std::string text = filename;
 	text += " OPEN ";
 
 	std::fstream file;
@@ -51,7 +51,7 @@ KVDBHandler::KVDBHandler(const std::string& db_file)
 	file.close();
 	getHash();
 	getQueue();
-	
+
 }
 
 KVDBHandler::~KVDBHandler()
@@ -142,11 +142,32 @@ void KVDBHandler::getQueue()
 	m.clear();
 
 }
+void KVDBHandler::checkKey(std::priority_queue<KeyTime> q1, std::string key, int time)
+{
+	int flag = 0;
+	while (!q1.empty())
+	{
+		if (key == q1.top().key)
+		{
+			flag = 1;
+			KeyTime kt = q1.top();
+			kt.time = time;
+			q.push(kt);
+		}
+		else
+			q.push(q1.top());
+		q1.pop();
+	}
+	if (flag == 0)
+	{
+		q.push({ key,time });
+	}
+}
 int set(KVDBHandler* handler, const std::string& key, const std::string& value)
 {
 	Log_Data data;
-	std::string text = handler->filename ;
-	text+=" SET ";
+	std::string text = handler->filename;
+	text += " SET ";
 	std::fstream file;
 	file.open(handler->filename, std::ios::out | std::ios::binary | std::ios::app);
 	if (!file)
@@ -176,6 +197,7 @@ int set(KVDBHandler* handler, const std::string& key, const std::string& value)
 		}
 		else
 		{
+			handler->LRU.put(key, value);
 			file.seekg(0, std::ios::end);
 			int offset = file.tellg();
 			file.write((char*)&klen, sizeof(int));
@@ -196,7 +218,7 @@ int set(KVDBHandler* handler, const std::string& key, const std::string& value)
 			}
 			text += key;
 			text += value;
-			data.setLog_Data(LOG_TYPE_INFO,text);
+			data.setLog_Data(LOG_TYPE_INFO, text);
 			return KVDB_OK;
 		}
 	}
@@ -233,32 +255,36 @@ int get(KVDBHandler* handler, const std::string& key, std::string& value)
 		}
 		else
 		{
-			if (handler->hash.Find(key))
+			value=handler->LRU.get(key);
+			if (value.empty())
 			{
-				int offset = handler->hash.GetOffset(key);
-				int vlen;
-				file.seekg(offset - key.length() - sizeof(int), std::ios::beg);//定位到vlen
-				file.read((char*)&vlen, sizeof(int));
-				file.seekg(key.length(), std::ios::cur);//定位到value
-				char* str_value;
-				str_value = new char[vlen + 1];
-				file.read(str_value, vlen);
-				str_value[vlen] = 0;
-				value = str_value;
-				delete[]str_value;
-				file.close();
-				text += key;
-				text += " KVDB_OK";
-				data.setLog_Data(LOG_TYPE_INFO, text);
-				return KVDB_OK;
-			}
-			else
-			{
-				file.close();
-				text += key;
-				text += "  KVDB_NO_FIND_VALUE";
-				data.setLog_Data(LOG_TYPE_INFO, text);
-				return KVDB_NO_FIND_VALUE;
+				if (handler->hash.Find(key))
+				{
+					int offset = handler->hash.GetOffset(key);
+					int vlen;
+					file.seekg(offset - key.length() - sizeof(int), std::ios::beg);//定位到vlen
+					file.read((char*)&vlen, sizeof(int));
+					file.seekg(key.length(), std::ios::cur);//定位到value
+					char* str_value;
+					str_value = new char[vlen + 1];
+					file.read(str_value, vlen);
+					str_value[vlen] = 0;
+					value = str_value;
+					delete[]str_value;
+					file.close();
+					text += key;
+					text += " KVDB_OK";
+					data.setLog_Data(LOG_TYPE_INFO, text);
+					return KVDB_OK;
+				}
+				else
+				{
+					file.close();
+					text += key;
+					text += "  KVDB_NO_FIND_VALUE";
+					data.setLog_Data(LOG_TYPE_INFO, text);
+					return KVDB_NO_FIND_VALUE;
+				}
 			}
 			/*   stage1的get
 			int klen, vlen;
@@ -333,6 +359,7 @@ int del(KVDBHandler* handler, const std::string& key)
 		}
 		else
 		{
+			handler->LRU.del(key);
 			file.write((char*)&klen, sizeof(int));
 			file.write((char*)&vlen, sizeof(int));
 			file.write(key.c_str(), klen);
@@ -407,19 +434,7 @@ int purge(KVDBHandler* handler)
 		return KVDB_OK;
 	}
 }
-int findkey(std::priority_queue<KeyTime> q, std::string key)
-{
-	while (!q.empty())
-	{
-		if (key == q.top().key)
-		{
-			return true;
-			break;
-		}
-		q.pop();
-	}
-	return false;
-}
+
 
 int expires(KVDBHandler* handler, const std::string key, int n)
 {
@@ -446,14 +461,8 @@ int expires(KVDBHandler* handler, const std::string key, int n)
 		time(&current_time);
 		k.time = n + current_time;
 		file >> k.key >> k.time;
-		if (findkey(handler->q, key))
-		{
-			handler->getQueue();
-		}
-		else
-		{
-			handler->q.push(k);
-		}
+		handler->checkKey(handler->q,k.key,k.time);
+
 		text += key;
 		text += n;
 		text += " KVDB_OK ";

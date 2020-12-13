@@ -4,6 +4,8 @@
 #include<fstream>
 #include<queue>
 #include"Hash.h"
+#include "LRUCache.h"
+const int  max_capacity = 3;
 struct KeyTime
 {
 	std::string key;
@@ -19,16 +21,19 @@ private:
 	std::string filename;
 	Hash hash;
 	std::priority_queue<KeyTime> q;
+	LRUCache LRU;
 public:
 	KVDBHandler(const std::string& db_file);
 	~KVDBHandler();
-	long getLength();//获取文件大小
+	long getLength();//获取磁盘大小
 	void getHash();
 	void getQueue();
+	void checkKey(std::priority_queue<KeyTime> q1, std::string key, int time);
 	friend int set(KVDBHandler* handler, const std::string& key, const std::string& value);
 	friend int get(KVDBHandler* handler, const std::string& key, std::string& value);
 	friend int del(KVDBHandler* handler, const std::string& key);
 	friend int purge(KVDBHandler* handler);
 	friend int expires(KVDBHandler* handler, const std::string key, int n);
 };
+
 
