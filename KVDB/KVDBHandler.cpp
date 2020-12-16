@@ -124,12 +124,15 @@ void KVDBHandler::getQueue()
 		file.read(str_key, klen);
 		str_key[klen] = 0;
 		file.read((char*)&time, sizeof(int));
-		Insert_Pair = m.insert(std::pair<std::string, int>(str_key, time));
-		if (Insert_Pair.second == false)
+		if (time != -1)
 		{
-			m[str_key] = time;
+			Insert_Pair = m.insert(std::pair<std::string, int>(str_key, time));
+			if (Insert_Pair.second == false)
+			{
+				m[str_key] = time;
+			}
+			delete[]str_key;
 		}
-		delete[]str_key;
 	}
 	while (!q.empty())
 	{
@@ -241,11 +244,25 @@ int get(KVDBHandler* handler, const std::string& key, std::string& value)
 	{
 		time_t current_time;
 		time(&current_time);
+		std::string _filename;
+		_filename = handler->filename;
+		_filename += "_time";
+		std::fstream _file;//存放过期时间的文件
+		_file.open(_filename, std::ios::out | std::ios::app);
+		int klen, time;
 		while (handler->q.top().time < current_time)
 		{
 			del(handler, handler->q.top().key);
 			handler->q.pop();
+			int klen, time;
+			klen = handler->q.top().key.length();
+			time = -1;
+			file.write((char*)&klen, sizeof(int));
+			file.write(key.c_str(), klen);
+			file.write((char*)&time, sizeof(int));
+			handler->q.pop();
 		}
+		_file.close();
 		if (key.length() == 0)
 		{
 			file.close();
@@ -359,6 +376,21 @@ int del(KVDBHandler* handler, const std::string& key)
 		}
 		else
 		{
+			/*
+			std::string _filename;
+			_filename = handler->filename;
+			_filename += "_time";
+			std::fstream _file;//存放过期时间的文件
+			_file.open(_filename, std::ios::out | std::ios::app);
+			int klen, time;
+			klen = handler->q.top().key.length();
+			time = -1;
+			_file.write((char*)&klen, sizeof(int));
+			_file.write(key.c_str(), klen);
+			_file.write((char*)&time, sizeof(int));
+			_file.close();
+			*/
+			handler->checkKey(handler->q, key, -1);
 			handler->LRU.del(key);
 			file.write((char*)&klen, sizeof(int));
 			file.write((char*)&vlen, sizeof(int));
@@ -445,9 +477,9 @@ int expires(KVDBHandler* handler, const std::string key, int n)
 	std::string _filename;
 	_filename = handler->filename;
 	_filename += "_time";
-	std::fstream file;//存放过期时间的文件
-	file.open(_filename, std::ios::out | std::ios::app);
-	if (!file)
+	std::fstream _file;//存放过期时间的文件
+	_file.open(_filename, std::ios::out | std::ios::app);
+	if (!_file)
 	{
 		text += "KVDB_INVALID_AOF_PATH";
 		data.setLog_Data(LOG_TYPE_ERROR, text);
@@ -459,10 +491,13 @@ int expires(KVDBHandler* handler, const std::string key, int n)
 		k.key = key;
 		time_t current_time;
 		time(&current_time);
+		int klen = key.length();
 		k.time = n + current_time;
-		file >> k.key >> k.time;
+		_file.write((char*)&klen, sizeof(int));
+		_file.write(key.c_str(), klen);
+		_file.write((char*)&k.time, sizeof(int));
 		handler->checkKey(handler->q,k.key,k.time);
-
+		_file.close();
 		text += key;
 		text += n;
 		text += " KVDB_OK ";
