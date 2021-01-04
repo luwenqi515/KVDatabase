@@ -330,15 +330,15 @@ int purge(KVDBHandler* handler)
 		int flag;
 		std::string savefilename = handler->filename + "save",text;
 		KVDBHandler savehandler(savefilename,flag);
-		purge_Traversehash(handler, &savehandler);
-		purge_Traversehash(&savehandler, handler);
+		purge_TraverseIndex(handler, &savehandler);
+		purge_TraverseIndex(&savehandler, handler);
 		handler->getIndex_q();
 		text += "KVDB_OK";
 		logdata.setLog_Data(LOG_TYPE_INFO, text);
 		return KVDB_OK;
 	}
 }
-void purge_Traversehash(KVDBHandler *handler,KVDBHandler *savehandler)
+void purge_TraverseIndex(KVDBHandler *handler,KVDBHandler *savehandler)
 {
 	for (int i = 0; i < handler->index.tableSize; i++)
 	{

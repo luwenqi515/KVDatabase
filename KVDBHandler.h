@@ -25,14 +25,14 @@ private:
 public:
 	KVDBHandler(const std::string& db_file,int &flag);
 	~KVDBHandler();
-	long getLength();//获取磁盘大小
+	long getLength();//获取文件大小
 	void getIndex_q();
 	friend int set(KVDBHandler* handler, const std::string& key, const std::string& value,int ktime);
 	friend int get(KVDBHandler* handler, const std::string& key, std::string& value);
 	friend int del(KVDBHandler* handler, const std::string& key);
 	friend int purge(KVDBHandler* handler);
 	friend int expires(KVDBHandler* handler, const std::string key, int n);
-	friend void purge_Traversehash(KVDBHandler* handler, KVDBHandler* savehandler);
+	friend void purge_TraverseIndex(KVDBHandler* handler, KVDBHandler* savehandler);
 };
 
 
