@@ -22,4 +22,19 @@ void Log_Data::setLog_Data(int itype, std::string text)
 		file.open("ERROR.txt", std::ios::out | std::ios::app);
 		file << strDate_Time << " " << strText << "\n";
 	}
+	else if (iType == 2)
+	{
+		file.open("WARNING.txt", std::ios::out | std::ios::app);
+		file << strDate_Time << " " << strText << "\n";
+	}
+	else if (iType == 3)
+	{
+		file.open("DEBUG.txt", std::ios::out | std::ios::app);
+		file << strDate_Time << " " << strText << "\n";
+	}
+	else if (iType == 4)
+	{
+		file.open("FATAL.txt", std::ios::out | std::ios::app);
+		file << strDate_Time << " " << strText << "\n";
+	}
 }
