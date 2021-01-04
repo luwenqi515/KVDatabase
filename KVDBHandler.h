@@ -19,14 +19,14 @@ class KVDBHandler
 {
 private:
 	std::string filename;
-	Hash hash;
+	Hash index;
 	std::priority_queue<KeyTime> q;
 	LRUCache LRU;
 public:
 	KVDBHandler(const std::string& db_file,int &flag);
 	~KVDBHandler();
 	long getLength();//获取磁盘大小
-	void getHash_q();
+	void getIndex_q();
 	friend int set(KVDBHandler* handler, const std::string& key, const std::string& value,int ktime);
 	friend int get(KVDBHandler* handler, const std::string& key, std::string& value);
 	friend int del(KVDBHandler* handler, const std::string& key);

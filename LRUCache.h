@@ -19,11 +19,11 @@ struct ListNode
 class LRUCache
 {
 private:
-	int max_cnt=3;//最大缓存数量
-	int cnt;//缓存计数
+	int max_cnt=8;
+	int cnt;
 	std::map<std::string, ListNode*> m;//记录数据和其链表地址
-	ListNode* head;//链表头
-	ListNode* tail;//链表尾
+	ListNode* head;
+	ListNode* tail;
 public:
 	LRUCache();
 	void update(ListNode* p);

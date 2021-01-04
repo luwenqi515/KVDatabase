@@ -14,12 +14,6 @@ const int KVDB_INVALID_VALUE = 3;             //value值无效
 const int KVDB_NO_SPACE_LEFT_ON_DEVICES = 4;  //磁盘空间不足
 const int KVDB_NO_FIND_VALUE = 5;             //未找到value的值
 
-struct Record
-{
-	std::string value;
-	int ktime;
-};
-
 bool Freespace()//判断磁盘是否已满
 {
 	DWORD64 qwFreeBytes, qwFreeBytesToCaller, qwTotalBytes;
@@ -55,7 +49,7 @@ KVDBHandler::KVDBHandler(const std::string& db_file,int &flag)
 		data.setLog_Data(LOG_TYPE_INFO, text);
 	}
 	file.close();
-	getHash_q();
+	getIndex_q();
 
 }
 
@@ -73,7 +67,7 @@ long KVDBHandler::getLength()//获取文件大小
 	return ps;
 }
 
-void KVDBHandler::getHash_q()
+void KVDBHandler::getIndex_q()
 {
 	std::fstream file;
 	file.open(filename, std::ios::in | std::ios::binary);
@@ -92,13 +86,13 @@ void KVDBHandler::getHash_q()
 		{
 			file.seekg(vlen, std::ios::cur);
 			file.read((char*)&ktime, sizeof(int));
-			if (hash.Find(str_key))
+			if (index.Find(str_key))
 			{
-				hash.SetOffset(str_key, offset);
+				index.SetOffset(str_key, offset);
 			}
 			else
 			{
-				hash.AddItem(str_key, offset,ktime);
+				index.AddItem(str_key, offset,ktime);
 				k.push_back(str_key);
 			}
 			offset += sizeof(int);
@@ -109,7 +103,7 @@ void KVDBHandler::getHash_q()
 		}
 		else
 		{
-			hash.RemoveItem(str_key);
+			index.RemoveItem(str_key);
 			for (auto it = k.begin(); it != k.end(); it++)
 			{
 				if (*it == str_key)
@@ -129,7 +123,7 @@ void KVDBHandler::getHash_q()
 	}
 	for (auto it=k.begin ();it!=k.end() ;it++)
 	{
-		ktime=hash.GetKtime(*it);
+		ktime=index.GetKtime(*it);
 		q.push({ *it,ktime });
 	}
 }
@@ -168,7 +162,6 @@ int set(KVDBHandler* handler, const std::string& key, const std::string& value,i
 		}
 		else
 		{
-			//offset定位到vlen
 			handler->LRU.put(key, value);
 			file.seekg(0, std::ios::end);
 			int offset = file.tellg();
@@ -179,13 +172,13 @@ int set(KVDBHandler* handler, const std::string& key, const std::string& value,i
 			file.write(value.c_str(), vlen);
 			file.write((char*)&ktime, sizeof(int));
 			file.close();
-			if (handler->hash.Find(key))
+			if (handler->index.Find(key))
 			{
-				handler->hash.SetOffset(key, offset);
+				handler->index.SetOffset(key, offset);
 			}
 			else
 			{
-				handler->hash.AddItem(key, offset,ktime);
+				handler->index.AddItem(key, offset,ktime);
 			}
 			text += key;
 			text += value;
@@ -217,7 +210,7 @@ int get(KVDBHandler* handler, const std::string& key, std::string& value)
 		int klen, time;
 		while (!handler->q.empty() && handler->q.top().time!=0 && handler->q.top().time < current_time)
 		{
-			int ktime = handler->hash.GetKtime(handler->q.top().key);
+			int ktime = handler->index.GetKtime(handler->q.top().key);
 			if (ktime == handler->q.top().time)
 			{
 				del(handler, handler->q.top().key);
@@ -236,9 +229,9 @@ int get(KVDBHandler* handler, const std::string& key, std::string& value)
 			value=handler->LRU.get(key);
 			if (value.empty())
 			{
-				if (handler->hash.Find(key))
+				if (handler->index.Find(key))
 				{
-					int offset = handler->hash.GetOffset(key);
+					int offset = handler->index.GetOffset(key);
 					int vlen;
 					file.seekg(offset, std::ios::beg);//定位到vlen
 					file.read((char*)&vlen, sizeof(int));
@@ -311,7 +304,7 @@ int del(KVDBHandler* handler, const std::string& key)
 			file.write((char*)&vlen, sizeof(int));
 			file.write(key.c_str(), klen);
 			file.close();
-			handler->hash.RemoveItem(key);
+			handler->index.RemoveItem(key);
 			text += key;
 			text += " KVDB_OK";
 			data.setLog_Data(LOG_TYPE_INFO, text);
@@ -339,7 +332,7 @@ int purge(KVDBHandler* handler)
 		KVDBHandler savehandler(savefilename,flag);
 		purge_Traversehash(handler, &savehandler);
 		purge_Traversehash(&savehandler, handler);
-		handler->getHash_q();
+		handler->getIndex_q();
 		text += "KVDB_OK";
 		logdata.setLog_Data(LOG_TYPE_INFO, text);
 		return KVDB_OK;
@@ -347,9 +340,9 @@ int purge(KVDBHandler* handler)
 }
 void purge_Traversehash(KVDBHandler *handler,KVDBHandler *savehandler)
 {
-	for (int i = 0; i < handler->hash.tableSize; i++)
+	for (int i = 0; i < handler->index.tableSize; i++)
 	{
-		item* p = handler->hash.HashTable[i];
+		item* p = handler->index.HashTable[i];
 		while (p != NULL)
 		{
 			if (p->key != "empty")
@@ -362,7 +355,7 @@ void purge_Traversehash(KVDBHandler *handler,KVDBHandler *savehandler)
 		}
 	}
 	std::ofstream file_writer(handler->filename, std::ios_base::out);
-	handler->hash.clear();
+	handler->index.clear();
 }
 
 
@@ -391,7 +384,7 @@ int expires(KVDBHandler* handler, const std::string key, int n)
 		int klen = key.length(),vlen=value.length ();
 		k.time = n + current_time;
 
-		handler->hash.SetKtime(k.key, k.time);
+		handler->index.SetKtime(k.key, k.time);
 		set(handler, key, value, k.time);
 		handler->q.push(k);
 		file.close();

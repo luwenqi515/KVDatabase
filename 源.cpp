@@ -124,8 +124,7 @@ int main()
 		}
 		else if (command == 5)
 		{
-			//exit(0);
-			purge(&handler);
+			exit(0);
 		}
 		else
 		{
@@ -139,7 +138,7 @@ int main()
 			if (flag == 0)
 			{
 				std::cout << "文件过大，已整理完毕！" << std::endl;
-				handler.getHash_q();
+				handler.getIndex_q();
 			}
 			else if (flag == 1)
 			{
